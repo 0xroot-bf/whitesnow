@@ -6,9 +6,9 @@ EXTRAVERSION = -00054-g5f01537
 obj-m += debug_evt.o
 
 # Cambiar al directorio del fuente del kernel
-KDIR = /Users/sebas/Investigacion/goldfish
+KDIR = KERNEL_SOURCES
 # Cambiar al directorio de las herramientas para hacer cross compiling
-CROSS_COMPILE= /Users/sebas/Investigacion/android-ndk-r8b/toolchains/arm-linux-androideabi-4.4.3/prebuilt/darwin-x86/bin/arm-linux-androideabi-
+CROSS_COMPILE= CROSS_COMPILING TOOLS
 PWD := $(shell pwd)
 
 all:
